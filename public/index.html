@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sala Pública en Vivo — Presentación y Chat Abierto</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          },
+          colors: {
+            studio: {
+              bg: '#0f1117',
+              panel: '#181b24',
+              elevated: '#202430',
+              border: 'rgba(255, 255, 255, 0.08)',
+              borderStrong: 'rgba(255, 255, 255, 0.14)',
+            },
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    /* Estilos base y scrollbar personalizada */
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: #0f1117;
+      color: #f3f4f6;
+      overflow-x: hidden;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 17, 23, 0.4);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.25);
+      border-radius: 9999px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.42);
+    }
+
+    @keyframes pulseDot {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.45;
+        transform: scale(0.85);
+      }
+    }
+
+    .live-dot {
+      animation: pulseDot 1.6s ease-in-out infinite;
+    }
+
+    /* Animación suave para vista demo */
+    @keyframes scanline {
+      0% {
+        transform: translateY(-100%);
+      }
+      100% {
+        transform: translateY(350%);
+      }
+    }
+
+    .demo-scanline {
+      animation: scanline 5.5s linear infinite;
+    }
+
+    /* Modo teatro en escritorio */
+    body.theater-mode #stage-column {
+      width: 100%;
+    }
+    body.theater-mode #chat-column {
+      display: none;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-studio-bg text-gray-100 antialiased selection:bg-indigo-500/30 selection:text-indigo-200">
+  <!-- Barra superior de navegación / estado del estudio -->
+  <header class="sticky top-0 z-30 border-b border-studio-border bg-studio-bg/90 backdrop-blur-md">
+    <div class="max-w-[1680px] mx-auto px-3 sm:px-5 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
+      <!-- Marca y título de la sala -->
+      <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-violet-600 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-indigo-950/60 shrink-0">
+          <!-- Icono de pantalla / transmisión -->
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <rect x="2" y="4" width="20" height="14" rx="2" />
+            <path d="M8 21h8" />
+            <path d="M12 18v3" />
+            <polygon points="10,8.5 15,11 10,13.5" fill="currentColor" stroke="none" />
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <h1 class="text-sm sm:text-base font-bold tracking-tight text-white truncate">
+              Sala Pública en Vivo
+            </h1>
+            <span class="hidden md:inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
+              Estudio Abierto
+            </span>
+          </div>
+          <p class="text-[11px] sm:text-xs text-gray-400 truncate">
+            Comparte cualquier ventana, programa o pestaña con el chat en tiempo real
+          </p>
+        </div>
+      </div>
+
+      <!-- Indicadores rápidos y acciones de vista -->
+      <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+        <!-- Badge de estado global -->
+        <div id="header-status-badge" class="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1 rounded-full text-xs font-semibold border bg-gray-800/80 text-gray-300 border-white/10 transition-colors">
+          <span id="header-status-dot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+          <span id="header-status-text">EN ESPERA</span>
+        </div>
+
+        <!-- Botón modo teatro (visible en pantallas medianas/grandes) -->
+        <button
+          id="btn-theater-mode"
+          type="button"
+          title="Alternar modo teatro (oculta o muestra el chat lateral)"
+          class="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-studio-panel hover:bg-studio-elevated text-gray-200 border border-studio-border transition cursor-pointer"
+        >
+          <svg class="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <rect x="3" y="5" width="18" height="14" rx="2" />
+            <path d="M15 5v14" />
+          </svg>
+          <span id="theater-btn-label">Modo Teatro</span>
+        </button>
+
+        <!-- Botón pantalla completa del reproductor -->
+        <button
+          id="btn-fullscreen"
+          type="button"
+          title="Pantalla completa del escenario"
+          class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium bg-studio-panel hover:bg-studio-elevated text-gray-200 border border-studio-border transition cursor-pointer"
+        >
+          <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+            <path d="M16 3h3a2 2 0 0 1 2 2v3" />
+            <path d="M8 21H5a2 2 0 0 1-2-2v-3" />
+            <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+          </svg>
+          <span class="hidden sm:inline">Pantalla Completa</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Contenedor principal responsivo: Escenario ~70% izquierda, Chat ~30% derecha en escritorio -->
+  <main class="flex-1 max-w-[1680px] w-full mx-auto p-3 sm:p-4 lg:p-5 flex flex-col lg:flex-row gap-4 lg:gap-5 items-stretch">
+    <!-- COLUMNA IZQUIERDA: ESCENARIO DE PRESENTACIÓN (~70%) -->
+    <section id="stage-column" class="w-full lg:w-[70%] flex flex-col gap-3 sm:gap-4 min-w-0 transition-all duration-200">
+      <!-- Tarjeta principal del visor / escenario -->
+      <div id="stage-container" class="relative rounded-2xl bg-studio-panel border border-studio-border shadow-2xl overflow-hidden flex flex-col">
+        <!-- Barra superior del escenario -->
+        <div class="px-3.5 sm:px-5 py-3 border-b border-studio-border bg-studio-elevated/60 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span id="stage-live-pill" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-gray-700/70 text-gray-300 border border-white/10">
+              <span id="stage-live-dot" class="w-2 h-2 rounded-full bg-gray-400"></span>
+              <span id="stage-live-label">EN ESPERA</span>
+            </span>
+
+            <div class="min-w-0">
+              <p id="source-title" class="text-xs sm:text-sm font-semibold text-white truncate">
+                Sin fuente seleccionada
+              </p>
+              <p id="source-meta" class="text-[11px] text-gray-400 truncate">
+                Selecciona una ventana, aplicación, pestaña o pantalla completa para comenzar
+              </p>
+            </div>
+          </div>
+
+          <!-- Controles secundarios rápidos en la barra del escenario -->
+          <div class="flex items-center gap-2">
+            <span id="paused-badge" class="hidden px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              Vista pausada
+            </span>
+            <button
+              id="btn-toggle-audio"
+              type="button"
+              disabled
+              title="Silenciar o activar audio de la fuente compartida"
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-studio-bg/80 hover:bg-studio-bg text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed border border-studio-border transition cursor-pointer"
+            >
+              <svg id="icon-audio-on" class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+              </svg>
+              <svg id="icon-audio-off" class="w-3.5 h-3.5 text-rose-400 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <line x1="23" y1="9" x2="17" y2="15" />
+                <line x1="17" y1="9" x2="23" y2="15" />
+              </svg>
+              <span id="audio-btn-label" class="hidden sm:inline">Audio</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Área de visualización de video / estado de espera / modo demo -->
+        <div class="relative aspect-video w-full bg-[#090b10] flex items-center justify-center overflow-hidden select-none">
+          <!-- Elemento <video> para la transmisión real o demo canvas stream -->
+          <video
+            id="screen-video"
+            autoplay
+            playsinline
+            class="w-full h-full object-contain hidden bg-black"
+          ></video>
+
+          <!-- Overlay cuando está pausada la vista -->
+          <div id="paused-overlay" class="hidden absolute inset-0 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center gap-2 z-10 p-4 text-center">
+            <div class="w-12 h-12 rounded-full bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-300">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <rect x="6" y="4" width="4" height="16" rx="1" />
+                <rect x="14" y="4" width="4" height="16" rx="1" />
+              </svg>
+            </div>
+            <p class="text-sm sm:text-base font-semibold text-white">Transmisión en pausa</p>
+            <p class="text-xs text-gray-300 max-w-sm">
+              La captura sigue activa pero la vista está pausada. Haz clic en <strong>Reanudar vista</strong> para continuar mostrando el programa.
+            </p>
+          </div>
+
+          <!-- Estado inicial: EN ESPERA -->
+          <div id="idle-placeholder" class="w-full h-full flex flex-col items-center justify-center p-5 sm:p-8 text-center bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.12),transparent_68%)]">
+            <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-indigo-500/10 border border-indigo-400/25 flex items-center justify-center mb-4 shadow-inner">
+              <svg class="w-8 h-8 sm:w-10 sm:h-10 text-indigo-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                <rect x="2" y="3" width="20" height="14" rx="2" />
+                <path d="M8 21h8" />
+                <path d="M12 17v4" />
+                <path d="M12 7v6" />
+                <path d="m9 10 3 3 3-3" />
+              </svg>
+            </div>
+
+            <h2 class="text-base sm:text-xl font-bold text-white mb-1.5">
+              Listo para presentar cualquier programa o ventana
+            </h2>
+            <p class="text-xs sm:text-sm text-gray-400 max-w-lg mb-5 leading-relaxed">
+              Elige una <span class="text-gray-200 font-medium">ventana de aplicación</span>, una <span class="text-gray-200 font-medium">pestaña del navegador</span> o <span class="text-gray-200 font-medium">toda la pantalla</span>. Los asistentes podrán ver tu presentación y comentar en el chat lateral.
+            </p>
+
+            <!-- Chips de ejemplos de qué puedes compartir -->
+            <div class="flex flex-wrap items-center justify-center gap-2 text-[11px] text-gray-400 mb-5">
+              <span class="px-2.5 py-1 rounded-full bg-studio-panel border border-studio-border">Editor de código / IDE</span>
+              <span class="px-2.5 py-1 rounded-full bg-studio-panel border border-studio-border">Presentaciones / PDF</span>
+              <span class="px-2.5 py-1 rounded-full bg-studio-panel border border-studio-border">Hojas de cálculo / Dashboards</span>
+              <span class="px-2.5 py-1 rounded-full bg-studio-panel border border-studio-border">Diseño / Prototipos</span>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-center gap-2.5">
+              <button
+                id="btn-start-idle"
+                type="button"
+                class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-lg shadow-indigo-950/60 transition cursor-pointer"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <rect x="2" y="4" width="20" height="14" rx="2" />
+                  <path d="M12 8v6" />
+                  <path d="m9 11 3 3 3-3" />
+                </svg>
+                <span>Compartir pantalla / programa</span>
+              </button>
+
+              <button
+                id="btn-demo-idle"
+                type="button"
+                class="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium bg-studio-elevated hover:bg-white/10 text-gray-200 border border-studio-borderStrong transition cursor-pointer"
+              >
+                <svg class="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+                <span>Modo demo de vista previa</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Panel de aviso / error elegante si getDisplayMedia es bloqueado o denegado -->
+          <div id="error-banner" class="hidden w-full h-full flex flex-col items-center justify-center p-5 sm:p-8 text-center bg-[#12101a]/95 z-20">
+            <div class="w-14 h-14 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 mb-3.5">
+              <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            </div>
+            <h3 id="error-title" class="text-base sm:text-lg font-bold text-white mb-1.5">
+              No se pudo iniciar la captura de pantalla
+            </h3>
+            <p id="error-description" class="text-xs sm:text-sm text-gray-300 max-w-md mb-5 leading-relaxed">
+              El permiso fue denegado o el navegador/entorno bloquea <code class="px-1.5 py-0.5 rounded bg-white/10 text-indigo-200 text-xs">getDisplayMedia</code>.
+            </p>
+            <div class="flex flex-wrap items-center justify-center gap-2.5">
+              <button
+                id="btn-retry-capture"
+                type="button"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer"
+              >
+                <span>Reintentar selección</span>
+              </button>
+              <button
+                id="btn-fallback-demo"
+                type="button"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-violet-600/25 hover:bg-violet-600/35 text-violet-200 border border-violet-400/35 transition cursor-pointer"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+                <span>Activar modo demo de vista previa</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Barra inferior de controles de presentación -->
+        <div class="p-3 sm:px-5 sm:py-3.5 bg-studio-panel border-t border-studio-border flex flex-wrap items-center justify-between gap-2.5">
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Compartir pantalla / programa -->
+            <button
+              id="btn-share-screen"
+              type="button"
+              class="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] text-white shadow-md shadow-indigo-950/50 transition cursor-pointer"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <rect x="2" y="3" width="20" height="14" rx="2" />
+                <path d="M8 21h8" />
+                <path d="M12 17v4" />
+              </svg>
+              <span>Compartir pantalla / programa</span>
+            </button>
+
+            <!-- Cambiar ventana / programa -->
+            <button
+              id="btn-switch-source"
+              type="button"
+              disabled
+              class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium bg-studio-elevated hover:bg-white/10 text-gray-200 disabled:opacity-40 disabled:pointer-events-none border border-studio-border transition cursor-pointer"
+            >
+              <svg class="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M17 1l4 4-4 4" />
+                <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                <path d="M7 23l-4-4 4-4" />
+                <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+              </svg>
+              <span>Cambiar ventana/programa</span>
+            </button>
+
+            <!-- Pausar / Reanudar vista -->
+            <button
+              id="btn-pause-resume"
+              type="button"
+              disabled
+              class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium bg-studio-elevated hover:bg-white/10 text-gray-200 disabled:opacity-40 disabled:pointer-events-none border border-studio-border transition cursor-pointer"
+            >
+              <svg id="icon-pause" class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+                <rect x="6" y="4" width="4" height="16" rx="1" />
+                <rect x="14" y="4" width="4" height="16" rx="1" />
+              </svg>
+              <svg id="icon-play" class="w-4 h-4 text-emerald-400 hidden" fill="currentColor" viewBox="0 0 24 24">
+                <polygon points="6 4 20 12 6 20 6 4" />
+              </svg>
+              <span id="pause-btn-label">Pausar vista</span>
+            </button>
+
+            <!-- Detener presentación -->
+            <button
+              id="btn-stop-share"
+              type="button"
+              disabled
+              class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 disabled:opacity-40 disabled:pointer-events-none border border-rose-500/30 transition cursor-pointer"
+            >
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <rect x="6" y="6" width="12" height="12" rx="2" />
+              </svg>
+              <span>Detener presentación</span>
+            </button>
+          </div>
+
+          <!-- Botón de modo demo rápido -->
+          <button
+            id="btn-demo-mode"
+            type="button"
+            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-violet-500/10 hover:bg-violet-500/20 text-violet-300 border border-violet-500/25 transition cursor-pointer"
+          >
+            <span class="w-2 h-2 rounded-full bg-violet-400"></span>
+            <span id="demo-btn-label">Modo demo de vista previa</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tarjeta informativa inferior / notas rápidas de la sesión -->
+      <div class="rounded-2xl bg-studio-panel/80 border border-studio-border p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-start sm:items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5 sm:mt-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-xs sm:text-sm font-semibold text-gray-100">
+              Consejo para presentar un programa específico
+            </h3>
+            <p class="text-[11px] sm:text-xs text-gray-400 leading-relaxed">
+              Al abrir el selector del navegador, elige la pestaña <strong class="text-gray-200">Ventana</strong> para mostrar solo el programa deseado (como tu editor, navegador o app) sin exponer el resto de tu escritorio.
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 text-[11px] text-gray-400 shrink-0">
+          <span id="resolution-badge" class="px-2.5 py-1 rounded-lg bg-studio-bg border border-studio-border font-mono">
+            Resolución: —
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- COLUMNA DERECHA: CHAT GRUPAL LATERAL (~30%) -->
+    <aside id="chat-column" class="w-full lg:w-[30%] flex flex-col rounded-2xl bg-studio-panel border border-studio-border shadow-2xl overflow-hidden min-h-[460px] lg:min-h-0 lg:max-h-[calc(100vh-6.25rem)] lg:sticky lg:top-20">
+      <!-- Encabezado del chat -->
+      <div class="px-4 py-3.5 border-b border-studio-border bg-studio-elevated/70 flex items-center justify-between gap-2">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h2 class="text-sm sm:text-base font-bold text-white">Chat de la Sala</h2>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+              Acceso público
+            </span>
+          </div>
+          <p class="text-[11px] text-gray-400 mt-0.5">
+            Conversación abierta para todos los asistentes
+          </p>
+        </div>
+
+        <!-- Contador de participantes en línea -->
+        <div class="flex items-center gap-1.5 shrink-0">
+          <div
+            title="Participantes conectados en la sala"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-studio-bg text-gray-200 border border-studio-border"
+          >
+            <span class="w-2 h-2 rounded-full bg-emerald-400 live-dot"></span>
+            <span id="online-count">24</span>
+            <span class="text-[11px] font-normal text-gray-400">en línea</span>
+          </div>
+          <button
+            id="btn-refresh-count"
+            type="button"
+            title="Actualizar contador de participantes"
+            class="p-1.5 rounded-lg bg-studio-bg hover:bg-white/10 text-gray-400 hover:text-gray-200 border border-studio-border transition cursor-pointer"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+              <path d="M16 16h5v5" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Configuración de apodo del visitante -->
+      <div class="px-4 py-2.5 bg-studio-bg/60 border-b border-studio-border flex items-center justify-between gap-2">
+        <label for="nickname-input" class="text-[11px] font-medium text-gray-400 shrink-0 flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+          <span>Tu nombre en el chat:</span>
+        </label>
+        <div class="flex items-center gap-1.5 flex-1 max-w-[205px]">
+          <input
+            id="nickname-input"
+            type="text"
+            maxlength="24"
+            placeholder="Invitado"
+            class="w-full px-2.5 py-1 rounded-lg text-xs font-medium bg-studio-elevated text-white placeholder-gray-500 border border-studio-border focus:outline-none focus:border-indigo-500 transition"
+          />
+          <button
+            id="btn-save-nickname"
+            type="button"
+            title="Guardar apodo"
+            class="px-2 py-1 rounded-lg text-[11px] font-semibold bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 transition cursor-pointer shrink-0"
+          >
+            OK
+          </button>
+        </div>
+      </div>
+
+      <!-- Área de mensajes con scroll automático -->
+      <div
+        id="chat-messages"
+        class="flex-1 overflow-y-auto px-3.5 py-3.5 space-y-3 bg-[linear-gradient(to_bottom,rgba(15,17,23,0.35),rgba(15,17,23,0.75))]"
+      >
+        <!-- Los mensajes se renderizan dinámicamente desde JavaScript -->
+      </div>
+
+      <!-- Barra de reacciones rápidas con emojis -->
+      <div class="px-3.5 py-2 border-t border-studio-border bg-studio-panel flex items-center justify-between gap-2">
+        <span class="text-[11px] text-gray-400 font-medium">Reacción rápida:</span>
+        <div class="flex items-center gap-1.5">
+          <button type="button" data-emoji="👍" class="quick-emoji px-2.5 py-1 rounded-lg bg-studio-elevated hover:bg-white/15 active:scale-95 text-sm border border-studio-border transition cursor-pointer" title="Enviar 👍">👍</button>
+          <button type="button" data-emoji="👏" class="quick-emoji px-2.5 py-1 rounded-lg bg-studio-elevated hover:bg-white/15 active:scale-95 text-sm border border-studio-border transition cursor-pointer" title="Enviar 👏">👏</button>
+          <button type="button" data-emoji="🔥" class="quick-emoji px-2.5 py-1 rounded-lg bg-studio-elevated hover:bg-white/15 active:scale-95 text-sm border border-studio-border transition cursor-pointer" title="Enviar 🔥">🔥</button>
+          <button type="button" data-emoji="❤️" class="quick-emoji px-2.5 py-1 rounded-lg bg-studio-elevated hover:bg-white/15 active:scale-95 text-sm border border-studio-border transition cursor-pointer" title="Enviar ❤️">❤️</button>
+        </div>
+      </div>
+
+      <!-- Formulario de envío de mensaje -->
+      <form id="chat-form" class="p-3 border-t border-studio-border bg-studio-elevated/80 flex items-center gap-2">
+        <input
+          id="chat-input"
+          type="text"
+          maxlength="400"
+          autocomplete="off"
+          placeholder="Escribe un mensaje para la sala..."
+          class="flex-1 min-w-0 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm bg-studio-bg text-white placeholder-gray-500 border border-studio-border focus:outline-none focus:border-indigo-500 transition"
+        />
+        <button
+          id="btn-send-message"
+          type="submit"
+          aria-label="Enviar mensaje"
+          class="inline-flex items-center justify-center px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white shadow-md shadow-indigo-950/50 transition cursor-pointer shrink-0"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <line x1="22" y1="2" x2="11" y2="13" />
+            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+          </svg>
+          <span class="hidden sm:inline ml-1.5">Enviar</span>
+        </button>
+      </form>
+    </aside>
+  </main>
+
+  <!-- Toast / notificación sutil no intrusiva -->
+  <div
+    id="toast-box"
+    class="fixed bottom-4 left-4 z-50 pointer-events-none opacity-0 translate-y-2 transition-all duration-200 max-w-xs rounded-xl bg-studio-elevated text-gray-100 border border-studio-borderStrong px-3.5 py-2.5 text-xs font-medium shadow-xl flex items-center gap-2"
+  >
+    <span class="w-2 h-2 rounded-full bg-indigo-400 shrink-0"></span>
+    <span id="toast-message">Listo</span>
+  </div>
+
+  <script>
+    /**
+     * =========================================================================
+     * SALA PÚBLICA EN VIVO — LÓGICA DE PRESENTACIÓN (getDisplayMedia) Y CHAT
+     * =========================================================================
+     */
+
+    // Claves de almacenamiento local para persistir sesión del chat y apodo
+    const STORAGE_KEYS = {
+      MESSAGES: 'sala_publica_en_vivo_mensajes_v1',
+      NICKNAME: 'sala_publica_en_vivo_apodo_v1',
+      PARTICIPANTS: 'sala_publica_en_vivo_participantes_v1',
+    };
+
+    // Estado central de la aplicación
+    const state = {
+      stream: null,
+      isLive: false,
+      isDemo: false,
+      isPaused: false,
+      isMuted: false,
+      sourceLabel: '',
+      demoTimer: null,
+      demoCanvas: null,
+      demoStream: null,
+      onlineCount: 24,
+      nickname: 'Invitado',
+      messages: [],
+    };
+
+    // Referencias a elementos del DOM
+    const dom = {
+      headerStatusBadge: document.getElementById('header-status-badge'),
+      headerStatusDot: document.getElementById('header-status-dot'),
+      headerStatusText: document.getElementById('header-status-text'),
+
+      stageContainer: document.getElementById('stage-container'),
+      stageLivePill: document.getElementById('stage-live-pill'),
+      stageLiveDot: document.getElementById('stage-live-dot'),
+      stageLiveLabel: document.getElementById('stage-live-label'),
+      sourceTitle: document.getElementById('source-title'),
+      sourceMeta: document.getElementById('source-meta'),
+      pausedBadge: document.getElementById('paused-badge'),
+      resolutionBadge: document.getElementById('resolution-badge'),
+
+      screenVideo: document.getElementById('screen-video'),
+      pausedOverlay: document.getElementById('paused-overlay'),
+      idlePlaceholder: document.getElementById('idle-placeholder'),
+      errorBanner: document.getElementById('error-banner'),
+      errorTitle: document.getElementById('error-title'),
+      errorDescription: document.getElementById('error-description'),
+
+      btnShareScreen: document.getElementById('btn-share-screen'),
+      btnStartIdle: document.getElementById('btn-start-idle'),
+      btnRetryCapture: document.getElementById('btn-retry-capture'),
+      btnSwitchSource: document.getElementById('btn-switch-source'),
+      btnPauseResume: document.getElementById('btn-pause-resume'),
+      iconPause: document.getElementById('icon-pause'),
+      iconPlay: document.getElementById('icon-play'),
+      pauseBtnLabel: document.getElementById('pause-btn-label'),
+      btnStopShare: document.getElementById('btn-stop-share'),
+      btnDemoMode: document.getElementById('btn-demo-mode'),
+      btnDemoIdle: document.getElementById('btn-demo-idle'),
+      btnFallbackDemo: document.getElementById('btn-fallback-demo'),
+      demoBtnLabel: document.getElementById('demo-btn-label'),
+      btnToggleAudio: document.getElementById('btn-toggle-audio'),
+      iconAudioOn: document.getElementById('icon-audio-on'),
+      iconAudioOff: document.getElementById('icon-audio-off'),
+      audioBtnLabel: document.getElementById('audio-btn-label'),
+      btnFullscreen: document.getElementById('btn-fullscreen'),
+      btnTheaterMode: document.getElementById('btn-theater-mode'),
+      theaterBtnLabel: document.getElementById('theater-btn-label'),
+
+      onlineCount: document.getElementById('online-count'),
+      btnRefreshCount: document.getElementById('btn-refresh-count'),
+      nicknameInput: document.getElementById('nickname-input'),
+      btnSaveNickname: document.getElementById('btn-save-nickname'),
+      chatMessages: document.getElementById('chat-messages'),
+      chatForm: document.getElementById('chat-form'),
+      chatInput: document.getElementById('chat-input'),
+      toastBox: document.getElementById('toast-box'),
+      toastMessage: document.getElementById('toast-message'),
+    };
+
+    let toastTimeout = null;
+
+    /**
+     * Muestra una notificación breve en pantalla sin usar alert().
+     */
+    function showToast(msg) {
+      dom.toastMessage.textContent = msg;
+      dom.toastBox.classList.remove('opacity-0', 'translate-y-2');
+      dom.toastBox.classList.add('opacity-100', 'translate-y-0');
+
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        dom.toastBox.classList.remove('opacity-100', 'translate-y-0');
+        dom.toastBox.classList.add('opacity-0', 'translate-y-2');
+      }, 2800);
+    }
+
+    /**
+     * Formatea la hora actual en formato HH:MM.
+     */
+    function getCurrentTimeString() {
+      const now = new Date();
+      return now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    /**
+     * Genera un color consistente a partir del nombre de usuario para el avatar.
+     */
+    function getAvatarGradient(name) {
+      const gradients = [
+        'from-indigo-500 to-violet-600',
+        'from-emerald-500 to-teal-600',
+        'from-fuchsia-500 to-pink-600',
+        'from-amber-500 to-orange-600',
+        'from-sky-500 to-blue-600',
+        'from-purple-500 to-indigo-600',
+      ];
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      return gradients[Math.abs(hash) % gradients.length];
+    }
+
+    /**
+     * Obtiene 1 o 2 iniciales limpias de un nombre.
+     */
+    function getInitials(name) {
+      const clean = (name || 'IN').trim();
+      const parts = clean.split(/\s+/).filter(Boolean);
+      if (parts.length === 1) {
+        return parts[0].slice(0, 2).toUpperCase();
+      }
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+
+    /**
+     * =========================================================================
+     * GESTIÓN DE TRANSMISIÓN / COMPARTIR PANTALLA
+     * =========================================================================
+     */
+
+    /**
+     * Actualiza toda la UI del escenario y cabecera según el estado actual.
+     */
+    function syncStageUI() {
+      const active = state.isLive;
+
+      // Badge de cabecera
+      if (active) {
+        dom.headerStatusBadge.className =
+          'inline-flex items-center gap-2 px-2.5 sm:px-3 py-1 rounded-full text-xs font-semibold border bg-emerald-500/15 text-emerald-300 border-emerald-500/35 transition-colors';
+        dom.headerStatusDot.className = 'w-2 h-2 rounded-full bg-emerald-400 live-dot';
+        dom.headerStatusText.textContent = state.isDemo ? 'EN VIVO (DEMO)' : 'EN VIVO';
+
+        dom.stageLivePill.className =
+          'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+        dom.stageLiveDot.className = 'w-2 h-2 rounded-full bg-emerald-400 live-dot';
+        dom.stageLiveLabel.textContent = state.isDemo ? 'EN VIVO · DEMO' : 'EN VIVO';
+      } else {
+        dom.headerStatusBadge.className =
+          'inline-flex items-center gap-2 px-2.5 sm:px-3 py-1 rounded-full text-xs font-semibold border bg-gray-800/80 text-gray-300 border-white/10 transition-colors';
+        dom.headerStatusDot.className = 'w-2 h-2 rounded-full bg-amber-400';
+        dom.headerStatusText.textContent = 'EN ESPERA';
+
+        dom.stageLivePill.className =
+          'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-gray-700/70 text-gray-300 border border-white/10';
+        dom.stageLiveDot.className = 'w-2 h-2 rounded-full bg-gray-400';
+        dom.stageLiveLabel.textContent = 'EN ESPERA';
+      }
+
+      // Título y metadatos de la fuente
+      if (active) {
+        dom.sourceTitle.textContent = state.sourceLabel || 'Pantalla compartida';
+        dom.sourceMeta.textContent = state.isDemo
+          ? 'Vista previa simulada activa — ideal para probar el diseño sin captura real'
+          : 'Transmitiendo en tiempo real a la sala pública';
+      } else {
+        dom.sourceTitle.textContent = 'Sin fuente seleccionada';
+        dom.sourceMeta.textContent = 'Selecciona una ventana, aplicación, pestaña o pantalla completa para comenzar';
+        dom.resolutionBadge.textContent = 'Resolución: —';
+      }
+
+      // Visibilidad del video vs estado de espera
+      dom.screenVideo.classList.toggle('hidden', !active);
+      dom.idlePlaceholder.classList.toggle('hidden', active || !dom.errorBanner.classList.contains('hidden'));
+
+      // Estado de pausa
+      dom.pausedOverlay.classList.toggle('hidden', !(active && state.isPaused));
+      dom.pausedBadge.classList.toggle('hidden', !(active && state.isPaused));
+      dom.iconPause.classList.toggle('hidden', state.isPaused);
+      dom.iconPlay.classList.toggle('hidden', !state.isPaused);
+      dom.pauseBtnLabel.textContent = state.isPaused ? 'Reanudar vista' : 'Pausar vista';
+
+      // Botones de control
+      dom.btnSwitchSource.disabled = !active || state.isDemo;
+      dom.btnPauseResume.disabled = !active;
+      dom.btnStopShare.disabled = !active;
+      dom.btnToggleAudio.disabled = !active || state.isDemo;
+
+      // Botón de modo demo
+      dom.demoBtnLabel.textContent = state.isDemo ? 'Detener demo' : 'Modo demo de vista previa';
+    }
+
+    /**
+     * Muestra el banner de error amigable cuando getDisplayMedia falla o está bloqueado.
+     */
+    function showCaptureError(title, description) {
+      stopStreamOnly();
+      state.isLive = false;
+      state.isDemo = false;
+      dom.idlePlaceholder.classList.add('hidden');
+      dom.screenVideo.classList.add('hidden');
+      dom.errorTitle.textContent = title;
+      dom.errorDescription.innerHTML = description;
+      dom.errorBanner.classList.remove('hidden');
+      syncStageUI();
+    }
+
+    /**
+     * Oculta el banner de error y vuelve al estado de espera limpio.
+     */
+    function hideCaptureError() {
+      dom.errorBanner.classList.add('hidden');
+      if (!state.isLive) {
+        dom.idlePlaceholder.classList.remove('hidden');
+      }
+    }
+
+    /**
+     * Detiene pistas de MediaStream o recursos del modo demo sin borrar mensajes.
+     */
+    function stopStreamOnly() {
+      if (state.stream) {
+        try {
+          state.stream.getTracks().forEach((track) => track.stop());
+        } catch (err) {
+          console.warn('Error deteniendo pistas de captura:', err);
+        }
+        state.stream = null;
+      }
+
+      if (state.demoTimer) {
+        clearInterval(state.demoTimer);
+        state.demoTimer = null;
+      }
+
+      if (state.demoStream) {
+        try {
+          state.demoStream.getTracks().forEach((track) => track.stop());
+        } catch (_) {}
+        state.demoStream = null;
+      }
+
+      state.demoCanvas = null;
+      dom.screenVideo.pause();
+      dom.screenVideo.srcObject = null;
+    }
+
+    /**
+     * Inicia o cambia la captura de pantalla mediante navigator.mediaDevices.getDisplayMedia.
+     */
+    async function startScreenShare(isSwitching = false) {
+      hideCaptureError();
+
+      if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== 'function') {
+        showCaptureError(
+          'Captura de pantalla no soportada en este entorno',
+          'Tu navegador o el contexto actual (por ejemplo, un iframe sin permisos o conexión no segura) no admite <code class="px-1.5 py-0.5 rounded bg-white/10 text-indigo-200 text-xs">getDisplayMedia</code>. Puedes usar el <strong>Modo demo de vista previa</strong> para probar la interfaz.'
+        );
+        return;
+      }
+
+      try {
+        // Solicitamos video y audio de la fuente elegida por el usuario (ventana, programa, pestaña o pantalla)
+        const newStream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            cursor: 'always',
+            frameRate: { ideal: 30, max: 60 },
+          },
+          audio: true,
+        });
+
+        // Detener transmisión anterior si existía
+        stopStreamOnly();
+
+        state.stream = newStream;
+        state.isLive = true;
+        state.isDemo = false;
+        state.isPaused = false;
+        state.isMuted = false;
+
+        const videoTrack = newStream.getVideoTracks()[0];
+        const settings = videoTrack ? videoTrack.getSettings() : {};
+        const rawLabel = videoTrack && videoTrack.label ? videoTrack.label : 'Fuente seleccionada';
+        const displaySurface = settings.displaySurface ? ` (${settings.displaySurface})` : '';
+        state.sourceLabel = `${rawLabel}${displaySurface}`;
+
+        if (settings.width && settings.height) {
+          dom.resolutionBadge.textContent = `Resolución: ${settings.width}×${settings.height}`;
+        }
+
+        // Si el usuario detiene la compartición desde la barra nativa del navegador
+        if (videoTrack) {
+          videoTrack.onended = () => {
+            if (state.isLive && !state.isDemo) {
+              stopPresentation(true);
+            }
+          };
+        }
+
+        dom.screenVideo.muted = false;
+        dom.screenVideo.srcObject = newStream;
+        await dom.screenVideo.play().catch(() => {});
+
+        // Actualizar resolución real cuando el metadata del video cargue
+        dom.screenVideo.onloadedmetadata = () => {
+          const w = dom.screenVideo.videoWidth;
+          const h = dom.screenVideo.videoHeight;
+          if (w && h) {
+            dom.resolutionBadge.textContent = `Resolución: ${w}×${h}`;
+          }
+        };
+
+        syncStageUI();
+        updateAudioButtonUI();
+
+        showToast(isSwitching ? 'Fuente de presentación actualizada' : 'Presentación iniciada en vivo');
+        appendSystemMessage(
+          `${state.nickname} ${isSwitching ? 'cambió la ventana/programa compartido' : 'inició la transmisión en vivo'}: "${state.sourceLabel}".`
+        );
+      } catch (err) {
+        const name = err && err.name ? err.name : '';
+
+        // Si el usuario estaba transmitiendo y canceló al intentar cambiar de ventana, mantenemos la sesión actual
+        if (isSwitching && state.isLive && state.stream) {
+          showToast('Se mantuvo la ventana actual');
+          return;
+        }
+
+        if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+          showCaptureError(
+            'Permiso de captura denegado o cancelado',
+            'No se seleccionó ninguna ventana o el navegador bloqueó el permiso de compartir pantalla. Vuelve a intentarlo o activa el <strong>Modo demo de vista previa</strong>.'
+          );
+        } else if (name === 'NotSupportedError' || name === 'SecurityError') {
+          showCaptureError(
+            'Acceso restringido por seguridad o política del navegador',
+            'La captura de pantalla está bloqueada en este contexto (por ejemplo, dentro de un marco embebido sin <code class="px-1.5 py-0.5 rounded bg-white/10 text-indigo-200 text-xs">allow="display-capture"</code>). Puedes probar el <strong>Modo demo de vista previa</strong>.'
+          );
+        } else {
+          showCaptureError(
+            'No fue posible iniciar la presentación',
+            `Ocurrió un inconveniente al acceder a la pantalla (${name || 'Error desconocido'}). Puedes reintentar o usar el <strong>Modo demo de vista previa</strong>.`
+          );
+        }
+      }
+    }
+
+    /**
+     * Activa o detiene un "Modo demo de vista previa" animado usando un <canvas> local.
+     */
+    function toggleDemoMode() {
+      if (state.isDemo && state.isLive) {
+        stopPresentation(false);
+        return;
+      }
+
+      hideCaptureError();
+      stopStreamOnly();
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 1280;
+      canvas.height = 720;
+      const ctx = canvas.getContext('2d');
+
+      state.demoCanvas = canvas;
+      state.isLive = true;
+      state.isDemo = true;
+      state.isPaused = false;
+      state.sourceLabel = 'Programa Demo — Editor y Panel en Vivo';
+      dom.resolutionBadge.textContent = 'Resolución: 1280×720 (Demo)';
+
+      let tick = 0;
+      const codeLines = [
+        'import { SalaPublica } from "@studio/live";',
+        '',
+        'const presentacion = new SalaPublica({',
+        '  modo: "ventana-seleccionada",',
+        '  chatAbierto: true,',
+        '  calidad: "1080p60"',
+        '});',
+        '',
+        'await presentacion.iniciarTransmision();',
+        'console.log("Presentación activa para el público");',
+      ];
+
+      const renderFrame = () => {
+        if (!state.isLive || !state.isDemo || state.isPaused) {
+          tick++;
+          return;
+        }
+        tick++;
+
+        // Fondo tipo IDE / estudio
+        ctx.fillStyle = '#0d1017';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Barra superior de ventana simulada
+        ctx.fillStyle = '#161b26';
+        ctx.fillRect(0, 0, canvas.width, 48);
+
+        const dotColors = ['#ef4444', '#f59e0b', '#22c55e'];
+        dotColors.forEach((c, idx) => {
+          ctx.beginPath();
+          ctx.arc(26 + idx * 22, 24, 6, 0, Math.PI * 2);
+          ctx.fillStyle = c;
+          ctx.fill();
+        });
+
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = '600 15px Inter, sans-serif';
+        ctx.fillText('app-presentacion.ts — Programa Seleccionado (Modo Demo)', 110, 29);
+
+        // Panel lateral izquierdo simulado
+        ctx.fillStyle = '#121620';
+        ctx.fillRect(0, 48, 250, canvas.height - 48);
+        ctx.fillStyle = '#64748b';
+        ctx.font = '600 12px Inter, sans-serif';
+        ctx.fillText('EXPLORADOR DE PROGRAMA', 20, 82);
+
+        const files = ['▶ sala-publica.html', '  presentacion.ts', '  chat-sala.ts', '  tema-estudio.css'];
+        files.forEach((f, i) => {
+          ctx.fillStyle = i === 0 ? '#a5b4fc' : '#94a3b8';
+          ctx.font = '500 14px monospace';
+          ctx.fillText(f, 20, 116 + i * 32);
+        });
+
+        // Código animado en el centro
+        codeLines.forEach((line, i) => {
+          const y = 112 + i * 36;
+          ctx.fillStyle = '#475569';
+          ctx.font = '14px monospace';
+          ctx.fillText(String(i + 1).padStart(2, '0'), 280, y);
+
+          ctx.fillStyle = line.includes('import') || line.includes('const') || line.includes('await')
+            ? '#c084fc'
+            : line.includes('"')
+            ? '#6ee7b7'
+            : '#e2e8f0';
+          ctx.font = '16px monospace';
+          ctx.fillText(line, 320, y);
+        });
+
+        // Tarjeta métrica animada abajo a la derecha
+        const pulseWidth = 220 + Math.sin(tick * 0.08) * 35;
+        ctx.fillStyle = '#161b26';
+        ctx.fillRect(280, 500, 950, 165);
+        ctx.strokeStyle = 'rgba(129, 140, 248, 0.35)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(280, 500, 950, 165);
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 18px Inter, sans-serif';
+        ctx.fillText('Vista Previa de Programa en Tiempo Real', 308, 538);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '14px Inter, sans-serif';
+        ctx.fillText('Cuando compartas una ventana real, aquí aparecerá tu aplicación seleccionada.', 308, 568);
+
+        // Barra de actividad animada
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(308, 596, 520, 14);
+        const grad = ctx.createLinearGradient(308, 0, 308 + pulseWidth, 0);
+        grad.addColorStop(0, '#6366f1');
+        grad.addColorStop(1, '#a855f7');
+        ctx.fillStyle = grad;
+        ctx.fillRect(308, 596, pulseWidth, 14);
+
+        ctx.fillStyle = '#a5b4fc';
+        ctx.font = '600 13px monospace';
+        ctx.fillText(`FRAME #${tick}`, 308, 638);
+      };
+
+      renderFrame();
+      state.demoTimer = setInterval(renderFrame, 50);
+
+      if (typeof canvas.captureStream === 'function') {
+        const stream = canvas.captureStream(24);
+        state.demoStream = stream;
+        dom.screenVideo.muted = true;
+        dom.screenVideo.srcObject = stream;
+        dom.screenVideo.play().catch(() => {});
+      }
+
+      syncStageUI();
+      showToast('Modo demo de vista previa activado');
+    }
+
+    /**
+     * Pausa o reanuda la vista de la presentación en el escenario.
+     */
+    function togglePauseView() {
+      if (!state.isLive) return;
+      state.isPaused = !state.isPaused;
+
+      if (state.stream) {
+        const videoTrack = state.stream.getVideoTracks()[0];
+        if (videoTrack) {
+          videoTrack.enabled = !state.isPaused;
+        }
+      }
+
+      if (!state.isDemo) {
+        if (state.isPaused) {
+          dom.screenVideo.pause();
+        } else {
+          dom.screenVideo.play().catch(() => {});
+        }
+      }
+
+      syncStageUI();
+      showToast(state.isPaused ? 'Vista pausada' : 'Vista reanudada');
+    }
+
+    /**
+     * Silencia o activa el audio de la fuente compartida si existe pista de audio.
+     */
+    function toggleSourceAudio() {
+      if (!state.stream || state.isDemo) return;
+      const audioTracks = state.stream.getAudioTracks();
+      if (audioTracks.length === 0) {
+        showToast('La fuente compartida no incluye audio');
+        return;
+      }
+
+      state.isMuted = !state.isMuted;
+      audioTracks.forEach((track) => {
+        track.enabled = !state.isMuted;
+      });
+      updateAudioButtonUI();
+      showToast(state.isMuted ? 'Audio de la presentación silenciado' : 'Audio de la presentación activado');
+    }
+
+    function updateAudioButtonUI() {
+      dom.iconAudioOn.classList.toggle('hidden', state.isMuted);
+      dom.iconAudioOff.classList.toggle('hidden', !state.isMuted);
+      dom.audioBtnLabel.textContent = state.isMuted ? 'Silenciado' : 'Audio';
+    }
+
+    /**
+     * Detiene completamente la presentación y vuelve a EN ESPERA.
+     */
+    function stopPresentation(fromBrowserStop = false) {
+      stopStreamOnly();
+      state.isLive = false;
+      state.isDemo = false;
+      state.isPaused = false;
+      state.isMuted = false;
+      state.sourceLabel = '';
+      hideCaptureError();
+      syncStageUI();
+      updateAudioButtonUI();
+
+      showToast(fromBrowserStop ? 'Se detuvo la compartición desde el navegador' : 'Presentación detenida');
+      appendSystemMessage(`${state.nickname} detuvo la presentación. La sala está en espera.`);
+    }
+
+    /**
+     * Alterna pantalla completa del contenedor del escenario.
+     */
+    async function toggleFullscreen() {
+      try {
+        if (!document.fullscreenElement) {
+          await dom.stageContainer.requestFullscreen();
+        } else {
+          await document.exitFullscreen();
+        }
+      } catch (err) {
+        showToast('No se pudo cambiar a pantalla completa en este entorno');
+      }
+    }
+
+    /**
+     * Alterna modo teatro en escritorio (oculta/muestra el chat lateral).
+     */
+    function toggleTheaterMode() {
+      document.body.classList.toggle('theater-mode');
+      const isTheater = document.body.classList.contains('theater-mode');
+      dom.theaterBtnLabel.textContent = isTheater ? 'Mostrar Chat' : 'Modo Teatro';
+      showToast(isTheater ? 'Modo teatro activado' : 'Chat lateral restaurado');
+    }
+
+    /**
+     * =========================================================================
+     * CHAT GRUPAL LATERAL ABIERTO AL PÚBLICO
+     * =========================================================================
+     */
+
+    /**
+     * Mensajes iniciales simulados para dar ambiente a la sala pública.
+     */
+    function getDefaultMessages() {
+      const time = getCurrentTimeString();
+      return [
+        {
+          id: 'welcome-1',
+          author: 'Moderador Sala',
+          role: 'Anfitrión',
+          text: '¡Bienvenidos a la Sala Pública en Vivo! Aquí puedes ver el programa compartido y conversar con todos.',
+          time,
+          system: false,
+        },
+        {
+          id: 'welcome-2',
+          author: 'Valeria M.',
+          role: '',
+          text: '¡Hola a todos! Conectada desde el chat, listos para ver lo que se va a presentar.',
+          time,
+          system: false,
+        },
+        {
+          id: 'welcome-3',
+          author: 'Diego R.',
+          role: '',
+          text: '¿Qué ventana o herramienta se va a mostrar hoy? ¡Saludos desde la sala! 👋',
+          time,
+          system: false,
+        },
+      ];
+    }
+
+    /**
+     * Carga mensajes y apodo guardados en localStorage.
+     */
+    function loadChatState() {
+      try {
+        const savedNick = localStorage.getItem(STORAGE_KEYS.NICKNAME);
+        if (savedNick && savedNick.trim()) {
+          state.nickname = savedNick.trim();
+        }
+      } catch (_) {}
+
+      dom.nicknameInput.value = state.nickname;
+
+      try {
+        const savedMsgs = localStorage.getItem(STORAGE_KEYS.MESSAGES);
+        if (savedMsgs) {
+          const parsed = JSON.parse(savedMsgs);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            state.messages = parsed;
+            return;
+          }
+        }
+      } catch (_) {}
+
+      state.messages = getDefaultMessages();
+      saveMessages();
+    }
+
+    /**
+     * Guarda los mensajes actuales en localStorage.
+     */
+    function saveMessages() {
+      try {
+        localStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(state.messages.slice(-150)));
+      } catch (_) {}
+    }
+
+    /**
+     * Guarda y valida el apodo del usuario.
+     */
+    function saveNickname(showFeedback = true) {
+      const cleaned = (dom.nicknameInput.value || '').trim().replace(/\s+/g, ' ');
+      state.nickname = cleaned || 'Invitado';
+      dom.nicknameInput.value = state.nickname;
+      try {
+        localStorage.setItem(STORAGE_KEYS.NICKNAME, state.nickname);
+      } catch (_) {}
+      if (showFeedback) {
+        showToast(`Tu nombre en el chat ahora es "${state.nickname}"`);
+      }
+    }
+
+    /**
+     * Agrega un mensaje de sistema al chat.
+     */
+    function appendSystemMessage(text) {
+      const msg = {
+        id: `sys-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        author: 'Sistema',
+        role: '',
+        text,
+        time: getCurrentTimeString(),
+        system: true,
+      };
+      state.messages.push(msg);
+      saveMessages();
+      renderChatMessages(true);
+    }
+
+    /**
+     * Envía un nuevo mensaje o reacción rápida del usuario actual.
+     */
+    function sendChatMessage(rawText) {
+      const text = (rawText || '').trim();
+      if (!text) return;
+
+      // Asegura tener el último apodo escrito si no se pulsó OK
+      const typedNick = (dom.nicknameInput.value || '').trim();
+      if (typedNick && typedNick !== state.nickname) {
+        state.nickname = typedNick;
+        try {
+          localStorage.setItem(STORAGE_KEYS.NICKNAME, state.nickname);
+        } catch (_) {}
+      }
+
+      const msg = {
+        id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        author: state.nickname || 'Invitado',
+        role: '',
+        text,
+        time: getCurrentTimeString(),
+        system: false,
+      };
+
+      state.messages.push(msg);
+      saveMessages();
+      renderChatMessages(true);
+    }
+
+    /**
+     * Renderiza la lista de mensajes en el contenedor del chat y hace scroll automático.
+     */
+    function renderChatMessages(smoothScroll = true) {
+      dom.chatMessages.innerHTML = '';
+
+      if (state.messages.length === 0) {
+        dom.chatMessages.innerHTML = `
+          <div class="h-full flex flex-col items-center justify-center text-center p-6 text-gray-500 text-xs">
+            Aún no hay mensajes en la sala. ¡Sé el primero en saludar!
+          </div>
+        `;
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+
+      state.messages.forEach((msg) => {
+        if (msg.system) {
+          const sysEl = document.createElement('div');
+          sysEl.className =
+            'px-3 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-[11px] text-indigo-200 text-center leading-snug';
+          sysEl.textContent = `${msg.text} · ${msg.time}`;
+          fragment.appendChild(sysEl);
+          return;
+        }
+
+        const isOwn = msg.author === state.nickname;
+        const rowEl = document.createElement('div');
+        rowEl.className = 'flex items-start gap-2.5 group';
+
+        const avatarEl = document.createElement('div');
+        avatarEl.className = `w-8 h-8 rounded-full bg-gradient-to-br ${getAvatarGradient(
+          msg.author
+        )} flex items-center justify-center text-[11px] font-bold text-white shrink-0 shadow-sm mt-0.5`;
+        avatarEl.textContent = getInitials(msg.author);
+
+        const bubbleEl = document.createElement('div');
+        bubbleEl.className = `flex-1 min-w-0 rounded-2xl px-3 py-2 border ${
+          isOwn
+            ? 'bg-indigo-600/15 border-indigo-500/30'
+            : 'bg-studio-elevated/90 border-studio-border'
+        }`;
+
+        const metaEl = document.createElement('div');
+        metaEl.className = 'flex items-center justify-between gap-2 mb-0.5';
+
+        const nameWrap = document.createElement('div');
+        nameWrap.className = 'flex items-center gap-1.5 min-w-0';
+
+        const authorSpan = document.createElement('span');
+        authorSpan.className = `text-xs font-semibold truncate ${
+          isOwn ? 'text-indigo-300' : 'text-gray-100'
+        }`;
+        authorSpan.textContent = msg.author;
+        nameWrap.appendChild(authorSpan);
+
+        if (msg.role) {
+          const roleBadge = document.createElement('span');
+          roleBadge.className =
+            'px-1.5 py-0.2 rounded text-[10px] font-medium bg-violet-500/20 text-violet-300 border border-violet-500/30';
+          roleBadge.textContent = msg.role;
+          nameWrap.appendChild(roleBadge);
+        } else if (isOwn) {
+          const youBadge = document.createElement('span');
+          youBadge.className = 'text-[10px] text-indigo-400/80 font-medium';
+          youBadge.textContent = '(tú)';
+          nameWrap.appendChild(youBadge);
+        }
+
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'text-[10px] text-gray-500 shrink-0';
+        timeSpan.textContent = msg.time;
+
+        metaEl.appendChild(nameWrap);
+        metaEl.appendChild(timeSpan);
+
+        const textEl = document.createElement('p');
+        textEl.className = 'text-xs sm:text-[13px] text-gray-200 break-words leading-relaxed whitespace-pre-wrap';
+        textEl.textContent = msg.text;
+
+        bubbleEl.appendChild(metaEl);
+        bubbleEl.appendChild(textEl);
+
+        rowEl.appendChild(avatarEl);
+        rowEl.appendChild(bubbleEl);
+        fragment.appendChild(rowEl);
+      });
+
+      dom.chatMessages.appendChild(fragment);
+
+      // Scroll automático hacia el último mensaje
+      requestAnimationFrame(() => {
+        dom.chatMessages.scrollTo({
+          top: dom.chatMessages.scrollHeight,
+          behavior: smoothScroll ? 'smooth' : 'auto',
+        });
+      });
+    }
+
+    /**
+     * Inicializa y permite actualizar el contador simulado de participantes en línea.
+     */
+    function initParticipantsCounter(forceRandomize = false) {
+      try {
+        const saved = parseInt(localStorage.getItem(STORAGE_KEYS.PARTICIPANTS), 10);
+        if (!forceRandomize && !Number.isNaN(saved) && saved >= 5 && saved <= 250) {
+          state.onlineCount = saved;
+        } else {
+          // Rango realista para sala pública abierta
+          const delta = Math.floor(Math.random() * 9) - 4; // -4 a +4
+          const base = forceRandomize ? state.onlineCount + delta : 18 + Math.floor(Math.random() * 19);
+          state.onlineCount = Math.max(6, Math.min(120, base));
+        }
+        localStorage.setItem(STORAGE_KEYS.PARTICIPANTS, String(state.onlineCount));
+      } catch (_) {
+        state.onlineCount = 24;
+      }
+
+      dom.onlineCount.textContent = String(state.onlineCount);
+    }
+
+    /**
+     * =========================================================================
+     * REGISTRO DE EVENTOS
+     * =========================================================================
+     */
+    function bindEvents() {
+      // Botones para iniciar captura real
+      dom.btnShareScreen.addEventListener('click', () => startScreenShare(false));
+      dom.btnStartIdle.addEventListener('click', () => startScreenShare(false));
+      dom.btnRetryCapture.addEventListener('click', () => startScreenShare(false));
+
+      // Cambiar ventana / programa
+      dom.btnSwitchSource.addEventListener('click', () => startScreenShare(true));
+
+      // Pausar / Reanudar vista
+      dom.btnPauseResume.addEventListener('click', togglePauseView);
+
+      // Detener presentación
+      dom.btnStopShare.addEventListener('click', () => stopPresentation(false));
+
+      // Audio de fuente
+      dom.btnToggleAudio.addEventListener('click', toggleSourceAudio);
+
+      // Modo demo de vista previa
+      dom.btnDemoMode.addEventListener('click', toggleDemoMode);
+      dom.btnDemoIdle.addEventListener('click', toggleDemoMode);
+      dom.btnFallbackDemo.addEventListener('click', toggleDemoMode);
+
+      // Pantalla completa y modo teatro
+      dom.btnFullscreen.addEventListener('click', toggleFullscreen);
+      dom.btnTheaterMode.addEventListener('click', toggleTheaterMode);
+
+      // Contador de participantes
+      dom.btnRefreshCount.addEventListener('click', () => {
+        initParticipantsCounter(true);
+        showToast(`Participantes en línea: ${state.onlineCount}`);
+      });
+
+      // Apodo del usuario
+      dom.btnSaveNickname.addEventListener('click', () => saveNickname(true));
+      dom.nicknameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          saveNickname(true);
+          dom.chatInput.focus();
+        }
+      });
+
+      // Envío de mensajes en el chat (Enter o clic en Enviar)
+      dom.chatForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const text = dom.chatInput.value;
+        if (!text.trim()) return;
+        sendChatMessage(text);
+        dom.chatInput.value = '';
+        dom.chatInput.focus();
+      });
+
+      // Reacciones rápidas con emojis
+      document.querySelectorAll('.quick-emoji').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const emoji = btn.getAttribute('data-emoji');
+          if (emoji) {
+            sendChatMessage(emoji);
+          }
+        });
+      });
+
+      // Limpiar recursos al cerrar o recargar la página
+      window.addEventListener('beforeunload', () => {
+        stopStreamOnly();
+      });
+    }
+
+    // Arranque inicial de la aplicación
+    window.addEventListener('DOMContentLoaded', () => {
+      loadChatState();
+      initParticipantsCounter(false);
+      renderChatMessages(false);
+      syncStageUI();
+      updateAudioButtonUI();
+      bindEvents();
+    });
+  </script>
+<script src="/socket.io/socket.io.js"></script>
+  <script src="/live.js"></script>
+</body>
+</html>
